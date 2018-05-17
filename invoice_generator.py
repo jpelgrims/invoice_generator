@@ -6,30 +6,29 @@ import shutil
 
 def read_data(invoice_date=None):
         if not invoice_date:
-                invoice_date = date.today().strftime('%d-%m-%Y')
+                invoice_date = date.today().strftime('%Y-%m-%d')
         
         file_path = os.path.join("data",invoice_date + ".txt")
         data = {}
+        current_name = ""
 
-        with open(file_path) as data_file:
+        with open(file_path) as data_file: 
                 for line in data_file:
-                       if line.startswith("Name:"):
+                        if line.startswith("Name:"):
                                 current_name = line[5:].strip()
                                 if not current_name in data.keys():
                                         data[current_name] = []
-                                else:
-                                        if current_name != "" and line != "---\n":
-                                                purchase = line.split(";")
-                                                data[current_name].append({"name": purchase[0], 
-                                                                        "amount": purchase[1],
-                                                                        "price": purchase[2], 
-                                                                        "cost": purchase[3]})
-        
+                        elif current_name != "" and line != "---\n":
+                                purchase = line.split(";")
+                                data[current_name].append({"name": purchase[0], 
+                                                        "amount": purchase[1],
+                                                        "price": purchase[2], 
+                                                        "cost": purchase[3]})
         return data
 
 
 def generate_invoices(data, invoice_date):
-        pay_by_date = (date.today() + datetime.timedelta(days=20)).strftime('%d-%m-%Y')
+        pay_by_date = (date.today() + datetime.timedelta(days=20)).strftime('%Y-%m-%d')
 
         # Load invoice template
         template = ""

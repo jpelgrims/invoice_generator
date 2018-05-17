@@ -40,11 +40,11 @@ def build_mail(from_addr, to_addr, subject, message, attachment=None):
 
 def load_accounts():
     accounts = [[item.strip() for item in line.split(",")] for line in open(os.path.join("data", "accounts.txt"))]
-    accounts = [{"e-mail": account[0], 
+    accounts = {account[3]: {"e-mail": account[0], 
                  "name": account[1], 
                  "family_name": account[2],
                  "system_name": account[3],
-                 "amount": float(account[4])} for account in accounts]
+                 "amount": float(account[4])} for account in accounts}
     return accounts
 
 def fill_template(template_file, data):
@@ -58,8 +58,8 @@ def send_reminders(email, password, server_address, server_port):
     server = login_server(server_address, server_port, email, password)
 
     accounts = load_accounts()
-    accounts = list(filter(lambda account: account["amount"] > 0, accounts))
-    template = os.path.join("templates","e-mail","reminder.txt")
+    accounts = list(filter(lambda account: account["amount"] > 0, accounts.values()))
+    template = os.path.join("templates","email","reminder.txt")
     
     for account_data in accounts:
         message = fill_template(template, account_data)
@@ -72,14 +72,23 @@ def send_reminders(email, password, server_address, server_port):
 def send_invoices(email, password, server_address, server_port, invoice_date):
     server = login_server(server_address, server_port, email, password)
 
-    accounts = load_accounts()
-    template = os.path.join("..","templates","e-mail","invoice.txt")
-            
-    for account_data in accounts:
-        message = fill_template(template, account_data)
-        pdf = os.path.join("invoices", invoice_date, "invoice_" + account_data["system_name"] + "_" + invoice_date + ".pdf")
-        mail = build_mail(email, account_data["e-mail"], "Factuur " + invoice_date, message, attachment=pdf)
-        send_mail(server, email, account_data["e-mail"], mail)
-        time.sleep(2)
+    accounts_data = load_accounts()
+    template = os.path.join("templates","email","invoice.txt")
+
+    invoices_dir = os.path.join("invoices", invoice_date)
+    invoices = [f for f in os.listdir(invoices_dir) if os.path.isfile(os.path.join(invoices_dir, f))]
+    invoiced_users = [invoice.split("_")[1] for invoice in invoices]
+
+    for user in invoiced_users:
+        if user in accounts_data.keys() and accounts_data[user]["e-mail"] != "":
+            account = accounts_data[user]
+            message = fill_template(template, account)
+            pdf = os.path.join("invoices", invoice_date, "invoice_" + account["system_name"] + "_" + invoice_date + ".pdf")
+            mail = build_mail(email, account["e-mail"], "Factuur " + invoice_date, message, attachment=pdf)
+            send_mail(server, email, account["e-mail"], mail)
+            print("Invoice for user {} sent.".format(user))
+            time.sleep(2)
+        else:
+            print("Invoice for user '{}' was not sent because invoicing data could not be found.".format(user))
 
     server.quit()
