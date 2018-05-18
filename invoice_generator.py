@@ -4,6 +4,32 @@ import subprocess
 import time
 import shutil
 
+from jinja2 import Environment, FileSystemLoader
+
+PATH = os.path.dirname(os.path.abspath(__file__))
+
+latex_jinja_env = Environment(
+	block_start_string = '\BLOCK{',
+	block_end_string = '}',
+	variable_start_string = '\VAR{',
+	variable_end_string = '}',
+	comment_start_string = '\#{',
+	comment_end_string = '}',
+	line_statement_prefix = '%%',
+	line_comment_prefix = '%#',
+	trim_blocks = True,
+	autoescape = False,
+	loader = FileSystemLoader(os.path.join(PATH, 'templates', 'invoice'))
+)
+
+def render_from_template(template, **kwargs):
+    if template.endswith(".tex"):
+        env = latex_jinja_env
+    else:
+        env = html_jinja_env
+    template = env.get_template(template)
+    return template.render(**kwargs)
+
 def read_data(invoice_date=None):
         if not invoice_date:
                 invoice_date = date.today().strftime('%Y-%m-%d')
@@ -28,8 +54,6 @@ def read_data(invoice_date=None):
 
 
 def generate_invoices(data, invoice_date):
-        pay_by_date = (date.today() + datetime.timedelta(days=20)).strftime('%Y-%m-%d')
-
         # Load invoice template
         template = ""
         with open(os.path.join("templates", "invoice", "invoice.tex")) as f:
@@ -50,19 +74,11 @@ def generate_invoices(data, invoice_date):
 
         for user in data.keys():
 
-                invoice = template.replace("$name", user)
-                invoice = invoice.replace("$pay_by_date", pay_by_date)
+                total = sum(float(entry["price"])*int(entry["amount"]) for entry in data[user])
+                total = str("%.2f" % round(total,2))
 
-                purchases = ""
-                total = 0
-                for entry in data[user]:
-                        total += float(entry["price"])*int(entry["amount"])
-                        purchases += "\hourrow{{{}}}{{{}}}{{{}}}\n".format(entry["name"], entry["amount"], entry["price"]) # Item name, Amount, cumulative cost
-                
-                purchases += "\hline\hline\hline"
-                purchases += "{\\bf Totaal} & & & {\\bf \euro" + str("%.2f" % round(total,2)) + "} \\"
-
-                invoice = invoice.replace("$purchases", purchases)
+                template = latex_jinja_env.get_template("invoice.tex")
+                invoice = template.render(name=user, invoice_items=data[user], total=total)
                 
                 filename = "invoice_{1}_{0}".format(invoice_date, user)
 

@@ -5,6 +5,15 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 
+from jinja2 import Environment, FileSystemLoader
+
+PATH = os.path.dirname(os.path.abspath(__file__))
+
+html_jinja_env = Environment(
+    autoescape=False,
+    loader=FileSystemLoader(os.path.join(PATH, 'templates', 'email')),
+    trim_blocks=False)
+
 def login_server(server, port, username, password):
     server = smtplib.SMTP(server, port)
     server.ehlo()
@@ -47,22 +56,15 @@ def load_accounts():
                  "amount": float(account[4])} for account in accounts}
     return accounts
 
-def fill_template(template_file, data):
-    with open(template_file) as f:
-        template = f.read()
-    for key, value in data.items():
-        template = template.replace("$"+key, str(value))
-    return template
-
 def send_reminders(email, password, server_address, server_port):
     server = login_server(server_address, server_port, email, password)
 
     accounts = load_accounts()
     accounts = list(filter(lambda account: account["amount"] > 0, accounts.values()))
-    template = os.path.join("templates","email","reminder.txt")
     
     for account_data in accounts:
-        message = fill_template(template, account_data)
+        template = html_jinja_env.get_template("reminder.txt")
+        message = template.render(amount=account_data["amount"])
         mail = build_mail(email, account_data["e-mail"], "Openstaand bedrag", message)
         send_mail(server, email, account_data["e-mail"], mail)
         time.sleep(2)
@@ -73,7 +75,6 @@ def send_invoices(email, password, server_address, server_port, invoice_date):
     server = login_server(server_address, server_port, email, password)
 
     accounts_data = load_accounts()
-    template = os.path.join("templates","email","invoice.txt")
 
     invoices_dir = os.path.join("invoices", invoice_date)
     invoices = [f for f in os.listdir(invoices_dir) if os.path.isfile(os.path.join(invoices_dir, f))]
@@ -82,7 +83,10 @@ def send_invoices(email, password, server_address, server_port, invoice_date):
     for user in invoiced_users:
         if user in accounts_data.keys() and accounts_data[user]["e-mail"] != "":
             account = accounts_data[user]
-            message = fill_template(template, account)
+
+            template = html_jinja_env.get_template("invoice.txt")
+            message = template.render(amount=account["amount"], name=user)
+
             pdf = os.path.join("invoices", invoice_date, "invoice_" + account["system_name"] + "_" + invoice_date + ".pdf")
             mail = build_mail(email, account["e-mail"], "Factuur " + invoice_date, message, attachment=pdf)
             send_mail(server, email, account["e-mail"], mail)
