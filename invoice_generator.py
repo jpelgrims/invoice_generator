@@ -22,14 +22,6 @@ latex_jinja_env = Environment(
 	loader = FileSystemLoader(os.path.join(PATH, 'templates', 'invoice'))
 )
 
-def render_from_template(template, **kwargs):
-    if template.endswith(".tex"):
-        env = latex_jinja_env
-    else:
-        env = html_jinja_env
-    template = env.get_template(template)
-    return template.render(**kwargs)
-
 def read_data(invoice_date=None):
         if not invoice_date:
                 invoice_date = date.today().strftime('%Y-%m-%d')
@@ -51,7 +43,6 @@ def read_data(invoice_date=None):
                                                         "price": purchase[2], 
                                                         "cost": purchase[3]})
         return data
-
 
 def generate_invoices(data, invoice_date):
         # Load invoice template

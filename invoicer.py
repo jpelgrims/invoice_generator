@@ -13,27 +13,31 @@ def main(argv):
             config = configparser.ConfigParser()
             config.read("config.ini")
 
+    users = None
     invoice_date = datetime.date.today().strftime('%Y-%m-%d')
 
-    if len(argv) == 2:
+    if len(argv) >= 2:
         try:
             datetime.datetime.strptime(argv[1], '%Y-%m-%d')
             invoice_date = argv[1]
         except:
             pass
+    if len(argv) == 3:
+        users = argv[2]
 
     if argv[0] == 'generate':
         data = read_data(invoice_date)
         generate_invoices(data, invoice_date)
     elif argv[0] == "send":
-        send_invoices(config["Credentials"]["email"], config["Credentials"]["password"], config["Server"]["server_address"], int(config["Server"]["server_port"]), invoice_date)
+        send_invoices(config["Credentials"]["email"], config["Credentials"]["password"], config["Server"]["server_address"], int(config["Server"]["server_port"]), invoice_date, users=users)
     elif argv[0] == "issue":
         data = read_data(invoice_date)
         generate_invoices(data, invoice_date)
         send_invoices(config["Credentials"]["email"], config["Credentials"]["password"], config["Server"]["server_address"], int(config["Server"]["server_port"]), invoice_date)
     elif argv[0] == "remind":
         send_reminders(config["Credentials"]["email"], config["Credentials"]["password"], config["Server"]["server_address"], int(config["Server"]["server_port"]))
-
+    elif argv[0] == "update":
+        raise NotImplementedError
 
 if __name__ == "__main__":
    main(sys.argv[1:])
