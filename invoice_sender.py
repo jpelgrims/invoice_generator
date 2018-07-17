@@ -84,7 +84,7 @@ def send_invoices(email, password, server_address, server_port, invoice_date, us
         invoiced_users = [invoice.split("_")[1] for invoice in invoices]
 
     for user in invoiced_users:
-        print(user)
+        print("Sending invoice for user {}.".format(user), end=" ")
         if user in accounts_data.keys() and accounts_data[user]["e-mail"] != "":
             account = accounts_data[user]
 
@@ -94,7 +94,7 @@ def send_invoices(email, password, server_address, server_port, invoice_date, us
             pdf = os.path.join("invoices", invoice_date, "invoice_" + account["system_name"] + "_" + invoice_date + ".pdf")
             mail = build_mail(email, account["e-mail"], "Factuur " + invoice_date, message, attachment=pdf)
             send_mail(server, email, account["e-mail"], mail)
-            print("Invoice for user {} sent.".format(user))
+            print("Invoice sent.")
             time.sleep(2)
         else:
             print("Invoice for user '{}' was not sent because invoicing data could not be found.".format(user))
