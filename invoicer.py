@@ -5,6 +5,7 @@ import configparser
 
 from invoice_generator import read_data, generate_invoices
 from invoice_sender import send_invoices, send_reminders
+from data_collector import collect_invoice_data, update_from_gsheets
 
 def main(argv):
 
@@ -37,7 +38,9 @@ def main(argv):
     elif argv[0] == "remind":
         send_reminders(config["Credentials"]["email"], config["Credentials"]["password"], config["Server"]["server_address"], int(config["Server"]["server_port"]))
     elif argv[0] == "update":
-        raise NotImplementedError
+        update_from_gsheets()
+    elif argv[0] == "collect":
+        collect_invoice_data()
 
 if __name__ == "__main__":
    main(sys.argv[1:])

@@ -79,11 +79,12 @@ def send_invoices(email, password, server_address, server_port, invoice_date, us
     invoices_dir = os.path.join("invoices", invoice_date)
     invoices = [f for f in os.listdir(invoices_dir) if os.path.isfile(os.path.join(invoices_dir, f))]
     if users:
-        invoiced_users = users.split(",")
+        invoiced_users = [user.strip('"') for user in users.split(",")]
     else:
         invoiced_users = [invoice.split("_")[1] for invoice in invoices]
 
     for user in invoiced_users:
+        print(user)
         if user in accounts_data.keys() and accounts_data[user]["e-mail"] != "":
             account = accounts_data[user]
 

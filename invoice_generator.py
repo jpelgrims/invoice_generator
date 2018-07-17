@@ -1,10 +1,11 @@
 import datetime, os
-from datetime import date
+from datetime import date, datetime
 import subprocess
 import time
 import shutil
 
 from jinja2 import Environment, FileSystemLoader
+from invoice_sender import load_accounts
 
 PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -21,6 +22,25 @@ latex_jinja_env = Environment(
 	autoescape = False,
 	loader = FileSystemLoader(os.path.join(PATH, 'templates', 'invoice'))
 )
+
+# locale setting doesn't work
+def translate_date(date):
+        to_dutch = {"January": "Januari", 
+                          "February": "Februari", 
+                          "March": "Maart", 
+                          "April": "April",
+                          "May": "Mei", 
+                          "June": "Juni", 
+                          "July": "Juli",
+                          "August": "Augustus",
+                          "September": "September",
+                          "October": "Oktober",
+                          "November": "November",
+                          "December": "December"}
+
+        date_parts = date.split(" ")
+        month = to_dutch[date_parts[1]]
+        return "{} {} {}".format(date_parts[0], month, date_parts[2])
 
 def read_data(invoice_date=None):
         if not invoice_date:
@@ -62,14 +82,19 @@ def generate_invoices(data, invoice_date):
         source = os.listdir(source_dir)
         for template_file in source:
                 shutil.copy(os.path.join(source_dir,template_file),path)
+        
+        user_data = load_accounts()
 
         for user in data.keys():
 
                 total = sum(float(entry["price"])*int(entry["amount"]) for entry in data[user])
                 total = str("%.2f" % round(total,2))
+                username = user_data[user]["name"] + " " + user_data[user]["family_name"]
+                invoice_date_full = datetime.strptime(invoice_date,'%Y-%m-%d').strftime('%d %B %Y')
+                invoice_date_full = translate_date(invoice_date_full)
 
                 template = latex_jinja_env.get_template("invoice.tex")
-                invoice = template.render(name=user, invoice_items=data[user], total=total)
+                invoice = template.render(name=username, invoice_items=data[user], total=total, date=invoice_date_full)
                 
                 filename = "invoice_{1}_{0}".format(invoice_date, user)
 
@@ -86,7 +111,7 @@ def generate_invoices(data, invoice_date):
                         os.path.join(script_path, path, filename + '.tex')]
 
                 subprocess.run(cmd)
-                time.sleep(5)
+                time.sleep(1)
                 os.chdir(script_path)
 
         # Remove all temporary build files
