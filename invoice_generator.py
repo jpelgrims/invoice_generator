@@ -3,6 +3,8 @@ from datetime import date, datetime
 import subprocess
 import time
 import shutil
+import csv
+import urllib.request
 
 from jinja2 import Environment, FileSystemLoader
 from invoice_sender import load_accounts
@@ -42,7 +44,27 @@ def translate_date(date):
         month = to_dutch[date_parts[1]]
         return "{} {} {}".format(date_parts[0], month, date_parts[2])
 
-def read_data(invoice_date=None):
+
+def read_csv_data(invoice_date, invoice_category):
+
+        file_path = os.path.join("data","{}_{}.csv".format(invoice_date, invoice_category))
+        data = {}
+
+        with open(file_path) as data_file:
+                csv_reader = csv.DictReader(data_file, delimiter=';')
+                for row in csv_reader:
+                        system_name = row["systeemnaam"]
+
+                        if not system_name in data.keys():
+                                data[system_name] = []
+                        
+                        data[system_name].append({"name": row["item"], 
+                                                  "amount": row["aantal"],
+                                                  "price": row["eenheidsprijs"], 
+                                                  "cost": row["totaal"]})
+        return data
+
+def read_old_data(invoice_date=None):
         if not invoice_date:
                 invoice_date = date.today().strftime('%Y-%m-%d')
         
@@ -64,7 +86,7 @@ def read_data(invoice_date=None):
                                                         "cost": purchase[3]})
         return data
 
-def generate_invoices(data, invoice_date):
+def generate_invoices(data, invoice_date, invoice_category):
         # Load invoice template
         template = ""
         with open(os.path.join("templates", "invoice", "invoice.tex")) as f:
@@ -73,7 +95,7 @@ def generate_invoices(data, invoice_date):
         script_path = os.path.split(os.path.realpath(__file__))[0]
 
         # Make output directory if it doesn't already exist
-        path = os.path.join("invoices", invoice_date)
+        path = os.path.join("invoices", invoice_date + "_" + invoice_category)
         if not os.path.exists(path):
                         os.makedirs(path)
 
@@ -86,15 +108,21 @@ def generate_invoices(data, invoice_date):
         user_data = load_accounts()
 
         for user in data.keys():
-
+                
                 total = sum(float(entry["price"])*int(entry["amount"]) for entry in data[user])
                 total = str("%.2f" % round(total,2))
-                username = user_data[user]["name"] + " " + user_data[user]["family_name"]
+                try:
+                        username = user_data[user]["name"] + " " + user_data[user]["family_name"]
+                except:
+                        username = user
+                
                 invoice_date_full = datetime.strptime(invoice_date,'%Y-%m-%d').strftime('%d %B %Y')
                 invoice_date_full = translate_date(invoice_date_full)
 
+                full_name = user_data[user]["first_name"] + " " + user_data[user]["last_name"]
+
                 template = latex_jinja_env.get_template("invoice.tex")
-                invoice = template.render(name=username, invoice_items=data[user], total=total, date=invoice_date_full)
+                invoice = template.render(name=full_name, invoice_items=data[user], total=total, date=invoice_date_full)
                 
                 filename = "invoice_{1}_{0}".format(invoice_date, user)
 
@@ -110,9 +138,13 @@ def generate_invoices(data, invoice_date):
                         "-pdf",
                         os.path.join(script_path, path, filename + '.tex')]
 
-                subprocess.run(cmd)
-                time.sleep(1)
+                result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+                with open('../../invoicer.log', 'w') as logfile:
+                        logfile.write(result.stdout.decode("utf-8"))
+
                 os.chdir(script_path)
+                print("Generated invoice for {}".format(user))
 
         # Remove all temporary build files
         source = os.listdir(path)
